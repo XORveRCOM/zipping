@@ -1,0 +1,409 @@
+<?xml version='1.0' encoding='Shift_JIS' ?>
+<package>
+	<!-- ==================================================================================================== -->
+	<!-- ※※※ 修正時には、Default JOB である "Install" を先頭から移動しないように注意 ※※※ -->
+	<!-- ==================================================================================================== -->
+	<job id="Install">
+		<runtime>
+			<description>+.zipping に書いた設定に従い 7-zip を自動実行する機能を追加します。</description>
+			<named
+				name="uninstall" type="boolean" required="false"
+				helpstring="これを設定すると、コンテキストメニューを削除します。"
+			/>
+		</runtime>
+	<!-- 利用オブジェクト -->
+		<object id="shell" progid="WScript.Shell"/>
+		<object id="shellApp" progid="Shell.Application"/>
+		<object id="fso" progid="Scripting.FileSystemObject"/>
+		<object id="dom" progid="Msxml2.DOMDocument"/>
+	<!-- 処理 -->
+		<script language="VBScript">
+<![CDATA[
+			' 定義ファイルのあるツールの汎用インストール処理
+			Option Explicit
+
+			const toolName = "zippingツール"
+			const shellNewFile = "sample\sample.zipping"
+
+			' --------------------
+			Dim ScriptName, ScriptPath
+			ScriptName = WScript.ScriptFullName
+			ScriptPath = fso.GetParentFolderName(ScriptName)
+
+			Dim FileExtension, descName, iconName, RegistoryEntry
+			FileExtension = ".zipping"
+			descName = "zip定義ファイル"
+			iconName = fso.BuildPath(ScriptPath, "zipping.ico")
+			RegistoryEntry = "zipping_config"
+
+			' 新規作成メニューへの項目追加
+			Dim ShellNew
+			ShellNew = fso.BuildPath(ScriptPath, shellNewFile)
+			' デバッガ起動のメニューも追加するか？
+			Dim IsAddingDebugger
+			IsAddingDebugger = False
+
+			Dim unInstall, uac
+			unInstall = WScript.Arguments.Named.Exists("uninstall")
+			uac = WScript.Arguments.Named.Exists("uac")
+
+			Dim arg, ret
+			if Not uac Then
+				If unInstall Then
+					MsgBox "*" & FileExtension & " の関連付けを抹消します。", , toolName
+					arg = """" & ScriptName & """ /uac /uninstall"
+				Else
+					MsgBox "*" & FileExtension & " の関連付けを登録します。" _
+						& vbLF & "抹消時は /uninstall を付けて起動してください。", , toolName
+					arg = """" & ScriptName & """ /uac"
+				End If
+
+				If IsPostVista Then
+					' Vista 以降ならば、管理者として実行
+					ret = shellApp.ShellExecute( WScript.FullName, arg, "", "runas", 1)
+					WScript.Quit 0
+				End If
+			End If
+
+			Dim job
+			If unInstall Then
+				On Error Resume Next
+' Script debugger Execution ----->
+				shell.RegDelete "HKCR\" & RegistoryEntry & "\shell\debug\command\"
+				shell.RegDelete "HKCR\" & RegistoryEntry & "\shell\debug\"
+' <----- Script debugger Execution
+				shell.RegDelete "HKCR\" & RegistoryEntry & "\shell\open\command\"
+				shell.RegDelete "HKCR\" & RegistoryEntry & "\shell\open\"
+				shell.RegDelete "HKCR\" & RegistoryEntry & "\shell\"
+				shell.RegDelete "HKCR\" & RegistoryEntry & "\DefaultIcon\"
+				shell.RegDelete "HKCR\" & RegistoryEntry & "\"
+				' 新規作成メニューの項目削除
+				shell.RegDelete "HKCR\" & FileExtension & "\ShellNew\FileName"
+				shell.RegDelete "HKCR\" & FileExtension & "\ShellNew\"
+				shell.RegDelete "HKCR\" & FileExtension & "\"
+				On Error Goto 0
+
+				' アンインストール用のショートカット
+				Dim lnkPath
+				lnkPath = fso.BuildPath(ScriptPath, toolName & "のアンインストール.lnk")
+				If fso.FileExists(lnkPath) Then fso.DeleteFile lnkPath, true
+			Else
+				shell.RegWrite "HKCR\" & FileExtension & "\", RegistoryEntry, "REG_SZ"
+				' 新規作成メニューへの項目追加
+				shell.RegWrite "HKCR\" & FileExtension & "\ShellNew\FileName", ShellNew, "REG_SZ"
+				shell.RegWrite "HKCR\" & RegistoryEntry & "\", descName, "REG_SZ"
+
+				arg = """" & WScript.Path & "\cscript.exe"" """ & ScriptName & """ //JOB:exec ""%1"""
+				shell.RegWrite "HKCR\" & RegistoryEntry & "\shell\open\command\", arg, "REG_SZ"
+' Script debugger Execution ----->
+				If IsAddingDebugger Then
+					shell.RegWrite "HKCR\" & RegistoryEntry & "\shell\debug\", "デバッグ", "REG_SZ"
+					shell.RegWrite "HKCR\" & RegistoryEntry & "\shell\debug\command\", arg & " //X", "REG_SZ"
+				End If
+' <----- Script debugger Execution
+				shell.RegWrite "HKCR\" & RegistoryEntry & "\DefaultIcon\", iconName & ",0"
+
+				' アンインストール用のショートカット
+				CreateJobShortcut _
+					ScriptPath _
+				,	"Install" _
+				,	toolName & "のアンインストール" _
+				,	WScript.ScriptName & "をアンインストールします。" _
+				,	"/uninstall"
+			End If
+
+			WScript.Quit
+
+		' --------------------------------------------------------------------------------
+		' Vista 以降の判定
+		Function IsPostVista
+			With GetObject("winmgmts:" & "{impersonationLevel=impersonate}!\\.\root\cimv2")
+				Dim os
+				For Each os in .ExecQuery("SELECT * FROM Win32_OperatingSystem")
+					If left(os.Version, 3) >= 6.0 Then
+						IsPostVista = True
+						Exit Function
+					End If
+				Next
+			End With
+			IsPostVista = False
+		End Function
+
+		' --------------------------------------------------------------------------------
+		' このスクリプト内のJOBに対するショートカットを新規作成
+		Sub CreateJobShortcut(lnkPath, id, name, description, arg)
+			Dim Shortcut, lnkFilePath
+			lnkFilePath = fso.BuildPath(lnkPath, name & ".lnk")
+			If fso.FileExists(lnkFilePath) Then fso.DeleteFile lnkFilePath, true
+			With Shell.CreateShortcut(lnkFilePath)
+				.Description = description
+'				.IconLocation = fso.BuildPath(ScriptPath, "DosPrompt.ico")
+				.IconLocation = WScript.Path & "\wscript.exe,2"
+				.TargetPath = WScript.Path & "\wscript.exe"
+				.Arguments = """" & ScriptName & """ //JOB:" & id & " " & arg
+				.WindowStyle = 1			' 通常のウィンドウ
+				.WorkingDirectory = ScriptPath
+				.Save
+			End With
+		End Sub
+]]>
+		</script>
+	</job>
+
+	<job id="exec">
+		<description></description>
+		<object id="shell" progid="WScript.Shell"/>
+		<object id="fso" progid="Scripting.FileSystemObject"/>
+		<object id="dom" progid="Msxml2.DOMDocument"/>
+		<script language="VBScript" src="Lib/Common.vbs"/>
+		<script language="VBScript" src="Lib/BlackList.vbs"/>
+		<script language="VBScript">
+<![CDATA[
+			Option Explicit
+
+			const toolName = "zippingツール"
+
+			' --------------------
+			' 7-zip が必須
+			Dim zipCommand, cmdpath
+			On Error Resume Next
+			cmdpath = shell.RegRead("HKLM\Software\7-Zip\Path64")
+			On Error GoTo 0
+			If IsEmpty(cmdpath) Then
+				MsgBox "実行には、7-zip が必要です。", vbOKOnly + vbCritical, toolName
+				Wscript.Quit -1
+			End If
+			zipCommand = fso.BuildPath(cmdpath, "7z.exe")
+			If Not fso.FileExists(zipCommand) Then
+				MsgBox "実行には、7-zip が必要です。", vbOKOnly + vbCritical, toolName
+				Wscript.Quit -1
+			End If
+
+			' スクリプトの情報を収集する
+			Dim ScriptName, ScriptPath
+			ScriptName = WScript.ScriptFullName
+			ScriptPath = fso.GetParentFolderName(ScriptName)
+
+			Dim Args, maker
+			Set Args = WScript.Arguments
+			If Args.Count > 0 Then
+				' 先頭の引数しか見ない（複数指定して実行しても、はじめの一個のみ）
+				'   エラーのダイアログなどが、複数ファイルを実行したときに混乱の元なので
+				Dim arg
+				arg = Args(0)
+				If fso.FileExists(arg) Then
+					Set maker = New ZipMaker
+					maker.Exec arg
+				End If
+			End If
+
+	Class ZipMaker
+		Dim log
+		Sub Exec(config)
+			Dim zippedBasePath
+			zippedBasePath = fso.GetParentFolderName(config)
+
+			Dim dt, ymd
+			dt = Now
+			ymd = YYYYMMDD(dt) & "." & HHNNSS(dt)
+
+			' ログ
+			Dim logFileName
+			logFileName = config & "." & ymd & ".log"
+			Set log = New Logger
+			log.Init logFileName
+
+			Dim errorcode, exec
+
+			' 定義ファイルを読んで処理
+			dom.Load config
+			If dom.parseError.errorCode <> 0 Then
+				log.WriteLine "[error detect]"
+				log.WriteLine "[ERRNO]"
+				With dom.parseError
+					errorcode = "0x" & Right("00000000" & Hex(.errorCode), 8)
+					log.Write  errorcode & " (" & .errorCode & ") "
+					log.WriteLine config & "(" & .line & ", " & .linepos & ") : """ & .reason & """"
+				End With
+				Exit Sub
+			End If
+			' zip 設定を正規表現にしてブラックリスト化
+			Dim includeBlackList, excludeBlackList
+			Dim proj, zipFileName, listFileName, elem, pat, regpat, zippath, password
+			For Each proj In dom.getElementsByTagName("project")
+
+				zippath = Empty
+				zippath = proj.getAttribute("zippath")
+				password = Empty
+				password = proj.getAttribute("password")
+				If IsEmpty(zippath) Or IsNull(zippath) Then
+					zippath = zippedBasePath
+				Else
+					zippath = Replace(zippath, "/", "\\")
+					If LCase(zippath) <> LCase(fso.GetAbsolutePathName(zippath)) Then
+						' 相対パス指定
+						zippath = fso.BuildPath(zippedBasePath, zippath)
+					End If
+				End If
+				If Not fso.FolderExists(zippath) Then
+					fso.CreateFolder zippath
+				End If
+
+				' zip ファイル名は /project/@name を元にして作る
+				zipFileName = fso.BuildPath(zippath, proj.getAttribute("name") & "." & ymd & ".zip")
+				listFileName = fso.BuildPath(zippath, proj.getAttribute("name") & "." & ymd & ".list")
+				log.WriteLine "------------------------------------------------------------"
+				log.WriteLine "zip file : " & zipFileName
+				log.WriteLine "------------------------------------------------------------"
+
+				' 圧縮するファイルを選択するブラックリスト
+				log.WriteLine "[include list]"
+				Set includeBlackList = New BlackList
+				For Each elem In proj.getElementsByTagName("include")
+					pat = elem.getAttribute("name")
+					regpat = ToPat(pat)
+					log.WriteLine "include : " & pat & vbTab & "->" & vbTab & regpat
+					includeBlackList.AddPattern(regpat)
+				Next
+
+				' 除外するファイルを選択するブラックリスト
+				log.WriteLine "[exclude list]"
+				Set excludeBlackList = New BlackList
+				For Each elem In proj.getElementsByTagName("exclude")
+					pat = elem.getAttribute("name")
+					regpat = ToPat(pat)
+					log.WriteLine "exclude : " & pat & vbTab & "->" & vbTab & regpat
+					excludeBlackList.AddPattern(regpat)
+				Next
+
+				' ファイル一覧を取得
+				log.WriteLine "[zipped files selecting]"
+				Dim files
+				Set files = CreateObject("Scripting.Dictionary")
+				shell.CurrentDirectory = zippedBasePath
+				On Error Resume Next
+				Set exec = shell.Exec("cmd /C dir /B /S /A:-D")
+				If Err.Number <> 0 Then
+					log.WriteLine "[error detect]"
+					log.WriteLine "[ERRNO]"
+					errorcode = "0x" & Right("00000000" & Hex(Err.Number), 8)
+					log.WriteLine  errorcode & " (" & Err.Number & ") """ & Trimming(Err.Description) & """"
+					Exit Sub
+				End If
+
+				' 圧縮するファイルを選択
+				On Error Goto 0
+				Dim stdout, filename, checkname
+				Set stdout = exec.StdOut
+				Do While stdout.AtEndOfStream <> True
+					filename = stdout.ReadLine
+					checkname = Replace(Mid(filename, Len(zippedBasePath) + 2), "\", "/")
+					' 圧縮対象で、除外対象でないファイルをリストアップ
+					If includeBlackList.IsMatch(checkname) Then
+						If Not excludeBlackList.IsMatch(checkname) Then
+							files.Add filename, checkname
+							log.WriteLine filename & vbTab & "is MATCH"
+						Else
+							log.WriteLine filename & vbTab & "is EXCLUDE"
+						End If
+					Else
+						log.WriteLine filename & vbTab & "is't INCLUDE"
+					End If
+				Loop
+
+				' 圧縮するファイルの一覧をファイル化
+				Dim text
+				text = ""
+				For Each elem In files.Keys
+					text = text & files.Item(elem) & vbCrLf
+				Next
+				SaveAsUTF8 listFileName, text
+
+				' 7-ZIP で ZIP 圧縮
+				On Error Resume Next
+				If IsEmpty(password) Or IsNull(password) Then
+					Set exec = shell.Exec("""" & zipCommand & """ a -ssw """ & zipFileName & """ @""" & listFileName & """")
+				Else
+					Set exec = shell.Exec("""" & zipCommand & """ a -ssw -p""" & password & """ """ & zipFileName & """ @""" & listFileName & """")
+				End If
+				If Err.Number <> 0 Then
+					log.WriteLine "[ERRNO]"
+					errorcode = "0x" & Right("00000000" & Hex(Err.Number), 8)
+					log.WriteLine  errorcode & " (" & Err.Number & ") """ & Trimming(Err.Description) & """"
+					Exit Sub
+				End If
+				On Error Goto 0
+				log.WriteLine "[7-zip result]"
+				log.WriteLine exec.StdOut.ReadAll
+			Next
+		End Sub
+	End Class
+
+		' ------------------------------------------------------------
+		' ファイルパスの選択パターンの正規表現化
+		' ------------------------------------------------------------
+		Function ToPat(pat)
+			Dim str
+			str = pat
+			str = Replace(str, "\", "/")
+			str = Replace(str, ".", "\.")
+			str = Replace(str, "^", "\^")
+			str = Replace(str, "$", "\$")
+			str = "^" & str & "$"
+			str = Replace(str, "**/", vbTab)
+			str = Replace(str, "**$", vbTab & "$")
+			str = Replace(str, "*", "[^/]*")
+			str = Replace(str, vbTab, ".*")
+			ToPat = str
+		End Function
+
+		' ------------------------------------------------------------
+		' 不要な空白文字を圧縮
+		' ------------------------------------------------------------
+		Function Trimming(str)
+			str = Trim(str)
+			str = Replace(str, vbTab, "")
+			str = Replace(str, vbCr, "")
+			str = Replace(str, vbLf, "")
+			Trimming = str
+		End Function
+
+	' ----------------------------------------
+	' ロガー
+	Class logger
+		Dim file
+		Sub Init(path)
+			If Not IsEmpty(file) Then
+				Close
+			End If
+			Set file = fso.CreateTextFile(path)
+		End Sub
+		Sub WriteLine(str)
+			WScript.StdOut.WriteLine str
+			If Not IsEmpty(file) Then
+				file.WriteLine str
+			End If
+		End Sub
+		Sub Write(str)
+			WScript.StdOut.Write str
+			If Not IsEmpty(file) Then
+				file.Write str
+			End If
+		End Sub
+		Sub WriteBlankLines(count)
+			WScript.StdOut.WriteBlankLines count
+			If Not IsEmpty(file) Then
+				file.WriteBlankLines count
+			End If
+		End Sub
+		Sub Close
+			If Not IsEmpty(file) Then
+				file.Close
+				file = Empty
+			End If
+		End Sub
+	End Class
+]]>
+		</script>
+	</job>
+</package>

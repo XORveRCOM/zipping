@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<project name="zipping" zippath="zip">
+	<include name="lib/*.vbs"/>
+	<include name="*.wsf"/>
+
+	<include name="*.bmp"/>
+	<include name="*.ico"/>
+
+	<include name="sample/*"/>
+
+	<include name="*.txt"/>
+	<include name="*.zipping"/>
+
+	<exclude name="lab/**"/>
+</project>

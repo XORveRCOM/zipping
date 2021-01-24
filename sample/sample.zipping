@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<project name="new" zippath="zip">
+<!-- 共通 -->
+
+	<!-- ソリューション -->
+	<include name="**/*.sln"/>
+<!--
+	<include name="**/*.suo"/>
+-->
+
+	<!-- class designer -->
+	<include name="**/*.cd"/>
+
+	<!-- SQL データベース -->
+	<include name="**/*.mdf"/>
+
+	<!-- レポート -->
+	<include name="**/*.rpt"/>
+	<include name="**/*.rdlc"/>
+
+	<!-- スクリプト -->
+	<include name="**/*.vbs"/>
+	<include name="**/*.js"/>
+	<include name="**/*.wsf"/>
+	<include name="**/*.cmd"/>
+
+	<!-- 設定 -->
+	<include name="**/*.settings"/>
+	<include name="**/*.config"/>
+
+<!-- C# -->
+	<include name="**/*.csproj"/>
+	<include name="**/*.csproj.user"/>
+	<include name="**/*.cs"/>
+	<include name="**/*.resx"/>
+
+	<!-- WPF -->
+	<include name="**/*.xaml"/>
+
+	<!-- 署名鍵 -->
+	<include name="**/*.pfx"/>
+	<include name="**/*.snk"/>
+
+<!-- MSTest -->
+<!--
+	<include name="**/*.testrunconfig"/>
+	<include name="**/*.vsmdi"/>
+-->
+
+<!-- WEB -->
+<!--
+	<include name="**/*.htm"/>
+	<include name="**/*.html"/>
+	<include name="**/*.css"/>
+
+	<include name="**/*.master"/>
+	<include name="**/*.sitemap"/>
+	<include name="**/*.skin"/>
+	<include name="**/*.browser"/>
+	<include name="**/*.disco"/>
+
+	<include name="**/*.aspx"/>
+	<include name="**/*.ascx"/>
+	<include name="**/*.asmx"/>
+	<include name="**/*.asax"/>
+	<include name="**/*.ashx"/>
+-->
+
+<!-- VC++ -->
+<!--
+	<include name="**/*.vcxproj"/>
+	<include name="**/*.vcxproj.filters"/>
+	<include name="**/*.vcxproj.user"/>
+	<include name="**/*.clw"/>
+
+	<include name="**/*.dsp"/>
+	<include name="**/*.dsw"/>
+
+	<include name="**/*.c"/>
+	<include name="**/*.cpp"/>
+	<include name="**/*.h"/>
+	<include name="**/*.hpp"/>
+	<include name="**/*.rc"/>
+
+	<include name="**/res/*.bin"/>
+	<include name="**/res/*.rc2"/>
+-->
+
+<!-- ドキュメント -->
+	<include name="**/*.txt"/>
+
+	<!-- XML -->
+	<include name="**/*.xml"/>
+	<include name="**/*.xsd"/>
+	<include name="**/*.xslt"/>
+
+	<!-- イメージ -->
+	<include name="**/*.ico"/>
+	<include name="**/*.png"/>
+	<include name="**/*.gif"/>
+	<include name="**/*.jpg"/>
+	<include name="**/*.bmp"/>
+	<include name="**/*.cur"/>
+
+<!-- その他 -->
+	<include name="**/*.memo"/>
+	<include name="**/*.sted"/>
+	<include name="**/*.zipping"/>
+
+<!-- 除外ファイル設定例 -->
+	<exclude name="**/bin/**/*.xml"/>
+	<exclude name="**/obj/**"/>
+	<exclude name="_UpgradeReport_Files/**"/>
+	<exclude name="UpgradeLog.XML"/>
+</project>
